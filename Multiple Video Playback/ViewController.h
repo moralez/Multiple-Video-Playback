@@ -17,4 +17,8 @@
 @property (nonatomic, strong) IBOutlet UIView *leftPlayer;
 @property (nonatomic, strong) IBOutlet UIView *rightPlayer;
 
+// Custom images for controls
+@property (nonatomic, strong) UIImage *playImage;
+@property (nonatomic, strong) UIImage *pauseImage;
+
 @end

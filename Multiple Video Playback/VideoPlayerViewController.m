@@ -28,7 +28,6 @@ NSString * const kRateKey           = @"rate";
 
 @interface VideoPlayerViewController ()
 
-@property (nonatomic, assign) BOOL seekToZeroBeforePlay;
 @property (nonatomic, strong) VideoPlayerView *playerView;
 
 @end
@@ -123,6 +122,10 @@ static void *BRGRateObservationContext = &BRGRateObservationContext;
     
 	if (context == BRGStatusObservationContext) {
         
+        if (self.controlsDelegate && [self.controlsDelegate respondsToSelector:@selector(syncPlayPauseButton)]) {
+            [self.controlsDelegate syncPlayPauseButton];
+        }
+        
         AVPlayerStatus status = [[change objectForKey:NSKeyValueChangeNewKey] integerValue];
         if (status == AVPlayerStatusReadyToPlay) {
             
@@ -130,6 +133,28 @@ static void *BRGRateObservationContext = &BRGRateObservationContext;
                 [self.controlsDelegate play:self shouldSeek:self.seekToZeroBeforePlay];
             }
         }
+        
+        switch (status) {
+            
+            case AVPlayerStatusReadyToPlay: {
+                
+                // Enable buttons & scrubber
+                if (self.controlsDelegate && [self.controlsDelegate respondsToSelector:@selector(enableButtonsAndScrubber)]) {
+                    [self.controlsDelegate enableButtonsAndScrubber];
+                }
+            }
+                break;
+                
+            case AVPlayerStatusUnknown:
+            case AVPlayerStatusFailed: {
+                // Disable buttons & scrubber
+                if (self.controlsDelegate && [self.controlsDelegate respondsToSelector:@selector(disableButtonsAndScrubber)]) {
+                    [self.controlsDelegate disableButtonsAndScrubber];
+                }
+            }
+                break;
+        }
+        
 	} else if (context == BRGCurrentItemObservationContext) {
         AVPlayerItem *newPlayerItem = [change objectForKey:NSKeyValueChangeNewKey];
         
@@ -137,9 +162,9 @@ static void *BRGRateObservationContext = &BRGRateObservationContext;
             [self.playerView setPlayer:self.player];
             [self.playerView setVideoFillMode:AVLayerVideoGravityResizeAspect];
             
-//            if (self.controlsDelegate && [self.controlsDelegate respondsToSelector:@selector(syncPlayPauseButton)]) {
-//                [self.controlsDelegate syncPlayPauseButton];
-//            }
+            if (self.controlsDelegate && [self.controlsDelegate respondsToSelector:@selector(syncPlayPauseButton)]) {
+                [self.controlsDelegate syncPlayPauseButton];
+            }
             [self addPlayerTimeObserver];
         }
 	} else if (context == BRGDurationObservationContext) {
@@ -147,9 +172,9 @@ static void *BRGRateObservationContext = &BRGRateObservationContext;
             [self.controlsDelegate syncProgressBar];
         }
     } else if (context == BRGRateObservationContext) {
-//            if (self.controlsDelegate && [self.controlsDelegate respondsToSelector:@selector(syncPlayPauseButton)]) {
-//                [self.controlsDelegate syncPlayPauseButton];
-//            }
+            if (self.controlsDelegate && [self.controlsDelegate respondsToSelector:@selector(syncPlayPauseButton)]) {
+                [self.controlsDelegate syncPlayPauseButton];
+            }
 	} else {
 		[super observeValueForKeyPath:path ofObject:object change:change context:context];
 	}

@@ -53,6 +53,7 @@
     [self setupRightPlayerWithURL:url2];
     
     self.masterVideoPlayerViewController = self.leftVideoPlayerViewController;
+    self.masterVideoPlayerViewController = [self videoPlayerWithShorterDuration];
     
     [self setupControls];
 }
@@ -72,12 +73,89 @@
     [self.topControlView addSubview:self.scrubberControlSlider];
 }
 
+- (void)setupCurrentPlayerTimeLabel {
+    
+    self.currentPlayerTimeLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    
+    [self.currentPlayerTimeLabel setFrame:CGRectMake(10., 3., 55., 15.)];
+    [self.currentPlayerTimeLabel setBackgroundColor:[UIColor clearColor]];
+    [self.currentPlayerTimeLabel setTextColor:[UIColor whiteColor]];
+    [self.currentPlayerTimeLabel setFont:[UIFont systemFontOfSize:12.]];
+    [self.currentPlayerTimeLabel setTextAlignment:NSTextAlignmentCenter];
+    
+    [self.topControlView addSubview:self.currentPlayerTimeLabel];
+}
+
+- (void)setupRemainingTimeLabel {
+    
+    self.remainingPlayerTimeLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+    
+    [self.remainingPlayerTimeLabel setFrame:CGRectMake(_topControlView.bounds.size.width-65., 3., 55., 15.)];
+    [self.remainingPlayerTimeLabel setBackgroundColor:[UIColor clearColor]];
+    [self.remainingPlayerTimeLabel setTextColor:[UIColor whiteColor]];
+    [self.remainingPlayerTimeLabel setFont:[UIFont systemFontOfSize:12.]];
+    [self.remainingPlayerTimeLabel setTextAlignment:NSTextAlignmentCenter];
+    [self.remainingPlayerTimeLabel setAutoresizingMask:(UIViewAutoresizingFlexibleLeftMargin)];
+    
+    [self.topControlView addSubview:self.remainingPlayerTimeLabel];
+}
+
 - (void)setupTopControls {
     [self setupScrubber];
+    [self setupCurrentPlayerTimeLabel];
+    [self setupRemainingTimeLabel];
+}
+
+- (void)setupPlayImage {
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(20., 20.), NO, [[UIScreen mainScreen] scale]);
+    
+    UIBezierPath *path = [UIBezierPath bezierPath];
+    [path moveToPoint:CGPointMake(0., 0.)];
+    [path addLineToPoint:CGPointMake(20., 10.)];
+    [path addLineToPoint:CGPointMake(0., 20.)];
+    [path closePath];
+    
+    [[UIColor whiteColor] setFill];
+    [path fill];
+    
+    self.playImage = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+}
+
+- (void)setupPauseImage {
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(20., 20.), NO, [[UIScreen mainScreen] scale]);
+    
+    // ||
+    UIBezierPath *path1 = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(0., 0., 7., 20.) cornerRadius:1.];
+    UIBezierPath *path2 = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(20.-7., 0., 7., 20.) cornerRadius:1.];
+    
+    [[UIColor whiteColor] setFill];
+    [path1 fill];
+    [path2 fill];
+    
+    self.pauseImage = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+}
+
+- (void)setupPlayPauseControlButton {
+    self.playPauseControlButton = [UIButton buttonWithType:UIButtonTypeCustom];
+    [self.playPauseControlButton setFrame:CGRectMake(10., 10., 20., 20.)];
+    [self.playPauseControlButton setShowsTouchWhenHighlighted:YES];
+    [self.playPauseControlButton setImage:self.playImage forState:UIControlStateNormal];
+    [self.playPauseControlButton addTarget:self action:@selector(playPause:) forControlEvents:UIControlEventTouchUpInside];
+    
+    [self.bottomControlView addSubview:self.playPauseControlButton];
+}
+
+- (void)setupBottomControls {
+    [self setupPlayImage];
+    [self setupPauseImage];
+    [self setupPlayPauseControlButton];
 }
 
 - (void)setupControls {
     [self setupTopControls];
+    [self setupBottomControls];
 }
 
 #pragma mark Player View Setup Methods
@@ -134,6 +212,37 @@
 
 #pragma mark ???
 
+- (VideoPlayerViewController*)videoPlayerWithShorterDuration {
+    
+    VideoPlayerViewController *videoPlayerViewController = nil;
+    NSInteger leftVideoDuration = NSIntegerMax;
+    NSInteger rightVideoDuration = NSIntegerMax;
+    
+    if ([self.leftVideoPlayerViewController.playerItem respondsToSelector:@selector(duration)] && // 4.3
+        self.leftVideoPlayerViewController.player.currentItem.status == AVPlayerItemStatusReadyToPlay) {
+        if (CMTIME_IS_VALID(self.leftVideoPlayerViewController.playerItem.duration))
+            leftVideoDuration = ceilf(CMTimeGetSeconds(self.leftVideoPlayerViewController.playerItem.duration));
+    } else if (CMTIME_IS_VALID(self.leftVideoPlayerViewController.player.currentItem.asset.duration)) {
+        leftVideoDuration = ceilf(CMTimeGetSeconds(self.leftVideoPlayerViewController.player.currentItem.asset.duration));
+    }
+    
+    if ([self.rightVideoPlayerViewController.playerItem respondsToSelector:@selector(duration)] && // 4.3
+        self.rightVideoPlayerViewController.player.currentItem.status == AVPlayerItemStatusReadyToPlay) {
+        if (CMTIME_IS_VALID(self.rightVideoPlayerViewController.playerItem.duration))
+            rightVideoDuration = ceilf(CMTimeGetSeconds(self.rightVideoPlayerViewController.playerItem.duration));
+    } else if (CMTIME_IS_VALID(self.rightVideoPlayerViewController.player.currentItem.asset.duration)) {
+        rightVideoDuration = ceilf(CMTimeGetSeconds(self.rightVideoPlayerViewController.player.currentItem.asset.duration));
+    }
+    
+    if (leftVideoDuration <= rightVideoDuration) {
+        videoPlayerViewController = self.leftVideoPlayerViewController;
+    } else {
+        videoPlayerViewController = self.rightVideoPlayerViewController;
+    }
+    
+    return videoPlayerViewController;
+}
+
 - (void)removePlayerTimeObserver {
     if ([self.masterVideoPlayerViewController playerTimeObserver]) {
         [[self.masterVideoPlayerViewController player] removeTimeObserver:[self.masterVideoPlayerViewController playerTimeObserver]];
@@ -155,7 +264,37 @@
     return kCMTimeInvalid;
 }
 
+#pragma mark Playback Methods
+
+- (BOOL)isPlaying {
+    return (self.masterVideoPlayerViewController.player.rate != 0.);
+}
+
+- (void)pause:(id)sender {
+    [self.leftVideoPlayerViewController.player pause];
+    [self.rightVideoPlayerViewController.player pause];
+}
+
+- (void)play:(id)sender {
+    if (self.masterVideoPlayerViewController.seekToZeroBeforePlay)  {
+		[self.masterVideoPlayerViewController setSeekToZeroBeforePlay:NO];
+		[self.leftVideoPlayerViewController.player seekToTime:kCMTimeZero];
+		[self.rightVideoPlayerViewController.player seekToTime:kCMTimeZero];
+	}
+    
+    [self.leftVideoPlayerViewController.player play];
+    [self.rightVideoPlayerViewController.player play];
+}
+
+- (void)playPause:(id)sender {
+    [self isPlaying] ? [self pause:sender] : [self play:sender];
+}
+
 #pragma mark Video Player Controls Delegate Methods
+
+- (void)syncPlayPauseButton {
+    [self.playPauseControlButton setImage:([self isPlaying] ? self.pauseImage : self.playImage) forState:UIControlStateNormal];
+}
 
 - (void)play:(id)sender shouldSeek:(BOOL)seekToZeroBeforePlay {
     
@@ -188,7 +327,21 @@
     [self.scrubberControlSlider setMaximumValue:duration];
     [self.scrubberControlSlider setValue:currentSeconds];
     
-    NSLog(@"%@", self.masterVideoPlayerViewController.player.currentItem.seekableTimeRanges);
+    if (durationHours <= 0 && durationMinutes <= 0 && durationSeconds <= 0) {
+        [self.leftVideoPlayerViewController.player pause];
+        [self.rightVideoPlayerViewController.player pause];
+    }
+}
+
+- (void)disableButtonsAndScrubber {
+    [self removePlayerTimeObserver];
+    [self syncProgressBar];
+}
+
+- (void)enableButtonsAndScrubber {
+    if (!self.isScrubbing) {
+        [self play:self];
+    }
 }
 
 @end

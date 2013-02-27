@@ -19,15 +19,19 @@
 @protocol VideoPlayerControlsDelegate <NSObject>
 - (void)play:(id)sender shouldSeek:(BOOL)seekToZeroBeforePlay;
 - (void)syncProgressBar;
+- (void)syncPlayPauseButton;
+- (void)disableButtonsAndScrubber;
+- (void)enableButtonsAndScrubber;
 @end
 
 @interface VideoPlayerViewController : UIViewController
 
-@property (nonatomic, weak) id<VideoPlayerControlsDelegate> controlsDelegate;
-@property (nonatomic, strong) AVPlayer *player;
-@property (nonatomic, strong) AVPlayerItem *playerItem;
-@property (nonatomic, copy) NSURL *URL;
-@property (nonatomic, strong) id playerTimeObserver;
+@property (nonatomic, weak)     id<VideoPlayerControlsDelegate> controlsDelegate;
+@property (nonatomic, strong)   AVPlayer                        *player;
+@property (nonatomic, strong)   AVPlayerItem                    *playerItem;
+@property (nonatomic, copy)     NSURL                           *URL;
+@property (nonatomic, strong)   id                              playerTimeObserver;
+@property (nonatomic, assign)   BOOL                            seekToZeroBeforePlay;
 
 - (void)addPlayerTimeObserver;
 
